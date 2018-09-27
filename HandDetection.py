@@ -83,6 +83,7 @@ class Hand:
         self.color = get_random_color()[0]
         self.truth_value = 100
 
+
     def update_attributes_from_detected(self, other_hand):
         self.fingertips = other_hand.fingertips
         self.intertips = other_hand.intertips
@@ -277,6 +278,14 @@ class HandDetector:
         # Decrease frame size
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1000)
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        self.out_video = None
+
+    def record_video(self):
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.out_video = cv2.VideoWriter('output.avi', fourcc, 20.0, (640, 480))
+
+    def stop_video(self):
+        self.out_video.release()
 
     def add_hand2(self, frame, roi = None):
         if roi is None:
@@ -538,19 +547,23 @@ class HandDetector:
             mask = self.depth_mask
             mask[mask>self.depth_threshold]= 0
             mask = self.depth_mask_to_image(mask)
-
+            if self.out_video is not None:
+                frame = cv2.cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+                self.out_video.write(frame)
+            # kernel_square = np.ones((11, 11), np.uint8)
+            kernel_ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
             # Kernel matrices for morphological transformation
-            kernel_square = np.ones((11, 11), np.uint8)
-            kernel_ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-            dilation = cv2.dilate(mask, kernel_ellipse, iterations=1)
-            erosion = cv2.erode(dilation, kernel_square, iterations=1)
+            mask = cv2.medianBlur(mask, 5)
+            for i in range(3):
+                mask = cv2.dilate(mask, kernel_ellipse, iterations=1)
+                mask = cv2.erode(mask, kernel_ellipse, iterations=1)
             # dilation2 = cv2.dilate(erosion, kernel_ellipse, iterations=1)
             # filtered = cv2.medianBlur(dilation2, 5)
             # kernel_ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (8, 8))
             # dilation2 = cv2.dilate(filtered, kernel_ellipse, iterations=1)
             # kernel_ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
             # dilation3 = cv2.dilate(filtered, kernel_ellipse, iterations=1)
-            mask = cv2.medianBlur(erosion, 3)
+            mask = cv2.medianBlur(mask, 3)
             # _, mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
         return mask
 
@@ -584,10 +597,10 @@ class HandDetector:
                         if hand.tracked:
                             hand.bounding_rect = hand.tracking_window
                         else:
-                            print "_____________No updated information"
+                            print("_____________No updated information")
                     hand.update_truth_value_by_frame2()
                     if hand.truth_value <= 0:
-                        print "removing hand"
+                        print("removing hand")
                         self.hands.remove(hand)
 
                 overlayed_frame = frame.copy()
@@ -602,7 +615,7 @@ class HandDetector:
                 # Print execution time
                 # print time.time()-start_time
             else:
-                print "No video detected"
+                print("No video detected")
 
             # close the output video by pressing 'ESC'
             k = cv2.waitKey(50) & 0xFF
@@ -633,7 +646,7 @@ class HandDetector:
                 # Print execution time
                 # print time.time()-start_time
             else:
-                print "No video detected"
+                print("No video detected")
 
             # close the output video by pressing 'ESC'
             if self.debug and len(self.hands) > 0:
@@ -1294,13 +1307,13 @@ class HandDetector:
                     detected_hand.detected = True
                     self.next_hand_id += 1
                     self.hands.append(detected_hand)
-                    print "New hand"
+                    print("New hand")
             else:
                 detected_hand.id = str(self.next_hand_id)
                 detected_hand.detected = True
                 self.next_hand_id += 1
                 self.hands.append(detected_hand)
-                print "New hand"
+                print("New hand")
 
     def update_detection_and_tracking(self, frame):
 
@@ -1357,7 +1370,7 @@ class HandDetector:
                     #     print "_____________No updated information"
                 existing_hand.update_truth_value_by_frame2()
                 if existing_hand.truth_value <= 0:
-                    print "removing hand"
+                    print("removing hand")
                     self.hands.remove(existing_hand)
 
     def detect_fist(self, frame, roi):
