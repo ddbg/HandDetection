@@ -286,7 +286,7 @@ class HandDetector:
         template_x, template_y, template_w, template_h = search_roi
 
         frame_contours, frame_mask = self.create_contours_and_mask(frame, search_roi)
-        masked_frame = np.zeros(frame.shape, dtype="uint8")
+        masked_frame = np.zeros(frame.get().shape, dtype="uint8")
         masked_frame[::] = 255
         if len(frame_contours) > 0 and len(frame_mask) > 0:
             # Get the maximum area contour
@@ -532,7 +532,8 @@ class HandDetector:
             # Absolutly unusefull
             mask = self.get_movement_buffer_mask(image)
         elif mode == "depth":
-            print "Mode depth"
+            if self.debug:
+                print "Mode depth"
             assert self.depth_mask is not None, "Depth mask must be set with set_depth_mask method. Use this method only with RGBD cameras"
             #TODO: ENV_DEPENDENCE: the second value depends on the distance from the camera to the maximum depth where it can be found in a scale of 0-255
             mask = self.depth_mask
@@ -560,8 +561,7 @@ class HandDetector:
         if depth_max!= depth_min and depth_max>0:
             depth = np.interp(depth, [depth_min, depth_max], [0.0, 255.0], right=255, left=0)
 
-        depth = np.array(depth, dtype=np.uint8)
-        depth = depth.reshape(480, 640, 1)
+        depth = depth.reshape(480, 640, 1).astype(np.uint8)
         return depth
 
     def compute(self):
@@ -1000,7 +1000,7 @@ class HandDetector:
         x, y, w, h = bounding_rect
         track_window = bounding_rect
         # set up the ROI for tracking
-        roi = frame[y:y + h, x:x + w]
+        roi = frame.get()[y:y + h, x:x + w]
         hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
         # mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)), np.array((180., 255., 255.)))
         roi_mask = mask[y:y + h, x:x + w]
@@ -1011,7 +1011,7 @@ class HandDetector:
         # Setup the termination criteria, either 10 iteration or move by atleast 1 pt
         term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)
+        dst = cv2.calcBackProject([hsv.get()], [0], roi_hist, [0, 180], 1)
         # apply meanshift to get the new location
         if method == "meanshift":
             ret, track_window = cv2.meanShift(dst, track_window, term_crit)
@@ -1159,7 +1159,7 @@ class HandDetector:
 
         # Draw Contours
         if self.debug:
-            to_show = frame.copy()
+            to_show = frame.get().copy()
             cv2.drawContours(to_show, contours, -1, (122, 122, 0), 1)
             if roi is not None:
                 cv2.rectangle(to_show, (roi[0], roi[1]), (roi[0] + roi[2], roi[1] + roi[3]), (122, 122, 255))
@@ -1313,7 +1313,7 @@ class HandDetector:
                     existing_hand.tracking_window = tracking_window
                     existing_hand.tracked = True
                 # detecction by intersection with hands found in frame
-                extended_roi = upscale_bounding_rect(existing_hand.bounding_rect, frame.shape, 60)
+                extended_roi = upscale_bounding_rect(existing_hand.bounding_rect, frame.get().shape, 60)
                 # if existing_hand.detected:
                 #     extended_roi = upscale_bounding_rect(existing_hand.bounding_rect, frame.shape, 60)
                 # else:
@@ -1335,7 +1335,7 @@ class HandDetector:
                     fist_bounding_rect, new_contour = self.detect_fist(frame, extended_roi)
                     if fist_bounding_rect is not None and new_contour is not None:
                         existing_hand.contour = new_contour
-                        existing_hand.bounding_rect = upscale_bounding_rect(fist_bounding_rect, frame.shape, 50)
+                        existing_hand.bounding_rect = upscale_bounding_rect(fist_bounding_rect, frame.get().shape, 50)
                         updated_hand = self.update_hand_attributes(frame, existing_hand, strict=False)
                         if updated_hand is not None:
                             existing_hand.update_attributes_from_detected(updated_hand)
@@ -1361,7 +1361,7 @@ class HandDetector:
                     self.hands.remove(existing_hand)
 
     def detect_fist(self, frame, roi):
-        to_show = frame.copy()
+        to_show = frame.get().copy()
         contours, _ = self.create_contours_and_mask(frame, roi)
         hand_contour = None
         if len(contours) > 0:
@@ -1474,7 +1474,7 @@ class HandDetector:
                     # Find convex defects
             if hand_contour is not None:
                 if self.debug:
-                    to_show = frame.copy()
+                    to_show = frame.get().copy()
                     cv2.drawContours(to_show, contours, -1, 255)
                     cv2.imshow("DEBUG: HandDetection_lib: update_hand_charasteristics (New Contour)", to_show)
                 updated_hand = self.update_hand_with_contour(frame, hand_contour, updated_hand)
